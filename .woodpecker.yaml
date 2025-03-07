@@ -1,0 +1,5 @@
+steps:
+  - commands:
+      - ls
+    image: golang:1.24
+    name: step 1
