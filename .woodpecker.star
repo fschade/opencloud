@@ -27,6 +27,7 @@ OC_UBUNTU = "owncloud/ubuntu:20.04"
 ONLYOFFICE_DOCUMENT_SERVER = "onlyoffice/documentserver:7.5.1"
 PLUGINS_DOCKER_BUILDX = "woodpeckerci/plugin-docker-buildx:latest"
 PLUGINS_GITHUB_RELEASE = "woodpeckerci/plugin-release"
+PLUGINS_GIT_ACTION = "quay.io/thegeeklab/wp-git-action"
 PLUGINS_S3 = "plugins/s3:1"
 PLUGINS_S3_CACHE = "plugins/s3-cache:1"
 PLUGINS_SLACK = "plugins/slack:1"
@@ -429,6 +430,11 @@ def main(ctx):
     Returns:
       none
     """
+
+    # toDo: and ctx.build.cron == "l10n"
+    # waitsFor: https://github.com/opencloud-eu/woodpecker-ci-config-service/pull/11
+    if ctx.build.event == "cron":
+        return sync_translations(ctx)
 
     build_release_helpers = \
         readyReleaseGo()
@@ -2142,6 +2148,69 @@ def skipIfUnchanged(ctx, type):
         skip = base
 
     return skip
+
+def sync_translations(ctx):
+    return [{
+        "name": "sync-translations",
+        "steps": [
+            {
+                "name": "translations-read",
+                "image": OC_CI_GOLANG,
+                "commands": [
+                    "make l10n-read",
+                ],
+            },
+            {
+                "name": "translations-sync",
+                "image": OC_CI_GOLANG,
+                "commands": [
+                    "curl -o- https://raw.githubusercontent.com/transifex/cli/master/install.sh | bash",
+                    ". ~/.profile",
+                    "make l10n-push",
+                    "make l10n-pull",
+                    "rm tx",
+                ],
+                "environment": {
+                    "TX_TOKEN": {
+                        "from_secret": "tx_token",
+                    },
+                },
+            },
+            {
+                "name": "translations-clean",
+                "image": OC_CI_GOLANG,
+                "commands": [
+                    "make l10n-clean",
+                ],
+            },
+            {
+                "name": "translations-write",
+                "image": PLUGINS_GIT_ACTION,
+                "settings": {
+                    "action": ["commit", "push"],
+                    "branch": "ci-add-l10n",
+                    "message": "[tx] updated from transifex",
+                    "author_name": {
+                        "from_secret": "github_username",
+                    },
+                    "author_email": "openclouders",
+                    "netrc_username": {
+                        "from_secret": "github_username",
+                    },
+                    "netrc_password": {
+                        "from_secret": "github_token",
+                    },
+                    "empty_commit": False,
+                },
+            },
+        ],
+        "when": [
+            {
+                "event": "cron",
+                "cron": "translations-sync",
+            }
+        ],
+    }]
 
 def example_deploys(ctx):
     on_merge_deploy = [
