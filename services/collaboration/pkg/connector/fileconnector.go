@@ -864,7 +864,7 @@ func (f *FileConnector) PutRelativeFileRelative(ctx context.Context, ccs Content
 				HeaderWopiLock:              lockID,
 				HeaderWopiLockFailureReason: "Lock Conflict",
 			},
-			Body: map[string]interface{}{
+			Body: map[string]any{
 				"Name":        target,
 				"Url":         wopiSrcURL.String(),
 				"HostViewUrl": createHostUrl("view", webURL, strings.ToLower(f.cfg.App.Name), newInfo),
@@ -1250,7 +1250,7 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 		}
 	}
 	// fileinfo map
-	infoMap := map[string]interface{}{
+	infoMap := map[string]any{
 		fileinfo.KeyOwnerID:           hexEncodedOwnerId,
 		fileinfo.KeySize:              int64(statRes.GetInfo().GetSize()),
 		fileinfo.KeyVersion:           getVersion(statRes.GetInfo().GetMtime()),
