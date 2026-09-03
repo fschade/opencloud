@@ -566,10 +566,10 @@ def main(ctx):
         codestyle(ctx) + \
         checkGherkinLint(ctx) + \
         checkTestSuitesInExpectedFailures(ctx) + \
-        pipelinesDependsOn(buildWebCache(ctx), savePipelineNumber(ctx)) + \
-        pipelinesDependsOn(cacheBrowsers(ctx), savePipelineNumber(ctx)) + \
+        pipelinesDependsOn(buildWebCache(ctx), savePipelineNumber()) + \
+        pipelinesDependsOn(cacheBrowsers(ctx), savePipelineNumber()) + \
         getGoBinForTesting(ctx) + \
-        pipelinesDependsOn(buildOpencloudBinaryForTesting(ctx), savePipelineNumber(ctx)) + \
+        pipelinesDependsOn(buildOpencloudBinaryForTesting(ctx), savePipelineNumber()) + \
         checkStarlark(ctx) + \
         build_release_helpers + \
         testOpencloudAndUploadResults(ctx) + \
@@ -630,21 +630,19 @@ def main(ctx):
     pipelines = test_pipelines + build_release_pipelines + genDocsPr(ctx) + serverTestingDocs(ctx) + notifyMatrixCheckSteps(ctx, getPipelineNames(testPipelines(ctx), optional = True))
 
     pipelineSanityChecks(pipelines)
-    return savePipelineNumber(ctx) + pipelines
+    return savePipelineNumber() + pipelines
 
-def savePipelineNumber(ctx):
-    base_url = "https://raw.githubusercontent.com/%s" % repo_slug
-    script_link = "%s/%s/tests/config/woodpecker/upload_pipeline_info.sh" % (base_url, ctx.build.commit)
+def savePipelineNumber():
+    # the repository is private, so the script cannot be fetched from raw.githubusercontent.com without
+    # credentials; rely on the regular clone step instead and run the script from the workspace
     return [{
         "name": "save-pipeline-info",
-        "skip_clone": True,
         "steps": [{
             "name": "upload-info",
             "image": MINIO_MC,
             "environment": MINIO_MC_ENV,
             "commands": [
-                "curl -s -o upload_pipeline_info.sh %s" % script_link,
-                "bash -x upload_pipeline_info.sh",
+                "bash -x tests/config/woodpecker/upload_pipeline_info.sh",
             ],
         }],
         "when": [
@@ -2259,8 +2257,20 @@ def makeNodeGenerate(module):
             "image": OC_CI_NODEJS,
             "environment": {
                 "CHROMEDRIVER_SKIP_DOWNLOAD": True,  # install fails on arm and chromedriver is a test only dependency
+                # read-only deploy key of the private opencloud-eu/web-internal repository
+                "WEB_INTERNAL_DEPLOY_KEY": {
+                    "from_secret": "github_web_internal_deploy_key",
+                },
+                "GIT_SSH_COMMAND": "ssh -i /root/.ssh/web_internal_deploy_key -o IdentitiesOnly=yes -o UserKnownHostsFile=/root/.ssh/known_hosts -o StrictHostKeyChecking=yes",
             },
             "commands": [
+                # services/web pull-assets clones https://github.com/opencloud-eu/web-internal.git; route exactly that URL
+                # over ssh with the deploy key. Host key pinned to GitHub's published ed25519 key
+                # (SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU).
+                "mkdir -p /root/.ssh && chmod 700 /root/.ssh",
+                'echo "$${WEB_INTERNAL_DEPLOY_KEY}" > /root/.ssh/web_internal_deploy_key && chmod 600 /root/.ssh/web_internal_deploy_key',
+                'echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > /root/.ssh/known_hosts',
+                'git config --global url."git@github.com:opencloud-eu/web-internal.git".insteadOf "https://github.com/opencloud-eu/web-internal.git"',
                 "pnpm config set store-dir ./.pnpm-store",
                 "for i in $(seq 3); do %s node-generate-dev && break || sleep 1; done" % make,
             ],
@@ -2420,7 +2430,9 @@ def notifyMatrixCheckSteps(ctx, depends_on):
                         "from_secret": "oc_ci_url",
                     },
                     "CI_REPO_ID": "3",
-                    "CI_WOODPECKER_TOKEN": "no-auth-needed-on-this-repo",
+                    "CI_WOODPECKER_TOKEN": {
+                        "from_secret": "openclouders_woodpecker_token",
+                    },
                 },
                 "commands": [
                     "git clone --single-branch --branch $QA_REPO_BRANCH $QA_REPO /tmp/qa",
@@ -3077,12 +3089,26 @@ def checkForWebCache(name):
 def cloneWeb():
     return {
         "name": "clone-web",
-        "image": OC_CI_NODEJS_ALPINE,
+        "image": OC_CI_NODEJS,
+        "environment": {
+            # read-only deploy key of the private opencloud-eu/web-internal repository
+            "WEB_INTERNAL_DEPLOY_KEY": {
+                "from_secret": "github_web_internal_deploy_key",
+            },
+            "GIT_SSH_COMMAND": "ssh -i /root/.ssh/web_internal_deploy_key -o IdentitiesOnly=yes -o UserKnownHostsFile=/root/.ssh/known_hosts -o StrictHostKeyChecking=yes",
+        },
         "commands": [
+            # this clones https://github.com/opencloud-eu/web-internal.git; route exactly that URL
+            # over ssh with the deploy key. Host key pinned to GitHub's published ed25519 key
+            # (SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU).
+            "mkdir -p /root/.ssh && chmod 700 /root/.ssh",
+            'echo "$${WEB_INTERNAL_DEPLOY_KEY}" > /root/.ssh/web_internal_deploy_key && chmod 600 /root/.ssh/web_internal_deploy_key',
+            'echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > /root/.ssh/known_hosts',
+            'git config --global url."git@github.com:opencloud-eu/web-internal.git".insteadOf "https://github.com/opencloud-eu/web-internal.git"',
             ". ./.woodpecker.env",
             "if $WEB_CACHE_FOUND; then exit 0; fi",
             "rm -rf %s" % dirs["web"],
-            "git clone -b $WEB_BRANCH --single-branch --no-tags https://github.com/opencloud-eu/web.git %s" % dirs["web"],
+            "git clone -b $WEB_BRANCH --single-branch --no-tags https://github.com/opencloud-eu/web-internal.git %s" % dirs["web"],
             "cd %s && git checkout $WEB_COMMITID" % dirs["web"],
         ],
     }
