@@ -25,7 +25,7 @@ pull-assets:
 	git clean -xfd assets
 	@if [ ! -d tmp/assets/core/origin ]; then \
 		echo "no web assets found, initializing"; \
-		git clone -b main --depth 1 https://github.com/opencloud-eu/web-internal.git tmp/assets/core/origin; \
+		git clone -b omega --depth 1 https://github.com/opencloud-eu/web-internal.git tmp/assets/core/origin; \
 	else \
 		echo "web assets found, updating"; \
 		cd tmp/assets/core/origin; \

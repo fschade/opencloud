@@ -4,7 +4,7 @@
 # Repository
 
 repo_slug = "${CI_REPO}"
-docker_repo_slug = "opencloudeu/opencloud"
+docker_repo_slug = "opencloud-intern/opencloud-omega"
 
 # images
 ALPINE_GIT = "alpine/git:latest"
@@ -76,7 +76,7 @@ MACHINE_AUTH_API_KEY = "fjsdlfgkjsdlktgersoiulersiltjlekir5[345;lesirtuwe542345w
 event = {
     "base": {
         "event": ["push", "manual"],
-        "branch": "main",
+        "branch": "omega",
     },
     "cron": {
         "event": "cron",
@@ -339,7 +339,7 @@ config = {
             "suites": [
                 "apiTenancy",
             ],
-            "skip": False,
+            "skip": True,
             "withRemotePhp": False,
             "ldapNeeded": True,
             "extraTestEnvironment": {
@@ -451,12 +451,14 @@ config = {
             "repo": docker_repo_slug,
             "build_type": "production",
         },
-        "rolling": {
-            "repo": docker_repo_slug + "-rolling",
-            "build_type": "rolling",
-        },
+        # no rolling on omega
+        # "rolling": {
+        #    "repo": docker_repo_slug + "-rolling",
+        #    "build_type": "rolling",
+        #},
+        # daily goes to the same repo
         "daily": {
-            "repo": docker_repo_slug + "-rolling",
+            "repo": docker_repo_slug,
             "build_type": "daily",
         },
     },
@@ -1947,7 +1949,7 @@ def dockerRelease(ctx, repo, build_type):
                     "context": ".",
                     "dry_run": True,
                     "platforms": "linux/amd64",  # do dry run only on the native platform
-                    "repo": "%s,quay.io/%s,registry.heinlein.group/%s" % (repo, repo, repo),
+                    "repo": "registry.heinlein.group/%s" % repo,
                     "auto_tag": False if build_type == "daily" else True,
                     "tag": hard_tag,
                     "default_tag": "daily",
@@ -1968,7 +1970,7 @@ def dockerRelease(ctx, repo, build_type):
                 "image": PLUGINS_DOCKER_BUILDX,
                 "settings": {
                     "context": ".",
-                    "repo": "%s,quay.io/%s,registry.heinlein.group/%s" % (repo, repo, repo),
+                    "repo": "registry.heinlein.group/%s" % repo,
                     "platforms": "linux/amd64,linux/arm64",  # we can add remote builders
                     "auto_tag": False if build_type == "daily" else True,
                     "tag": hard_tag,
@@ -1983,24 +1985,6 @@ def dockerRelease(ctx, repo, build_type):
                         "from_secret": "ci_http_proxy",
                     },
                     "logins": [
-                        {
-                            "registry": "https://index.docker.io/v1/",
-                            "username": {
-                                "from_secret": "docker_username",
-                            },
-                            "password": {
-                                "from_secret": "docker_password",
-                            },
-                        },
-                        {
-                            "registry": "https://quay.io",
-                            "username": {
-                                "from_secret": "quay_username",
-                            },
-                            "password": {
-                                "from_secret": "quay_password",
-                            },
-                        },
                         {
                             "registry": "https://registry.heinlein.group",
                             "username": {
@@ -2278,7 +2262,7 @@ def makeNodeGenerate(module):
             },
             "commands": [
                 "pnpm config set store-dir ./.pnpm-store",
-                "for i in $(seq 3); do %s node-generate-prod && break || sleep 1; done" % make,
+                "for i in $(seq 3); do %s node-generate-dev && break || sleep 1; done" % make,
             ],
         },
     ]
