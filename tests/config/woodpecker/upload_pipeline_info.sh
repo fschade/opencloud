@@ -14,7 +14,7 @@ if [ "$status" == "200" ];
 then
     source prev_pipeline
     REPO_ID=$(printf '%s' "$CI_PIPELINE_URL" | sed 's|.*/repos/\([0-9]*\)/.*|\1|')
-    p_status=$(curl -s -o pipeline_info.json "$CI_SYSTEM_URL/api/repos/$REPO_ID/pipelines/$PREV_PIPELINE_NUMBER" -w "%{http_code}")
+    p_status=$(curl -s -o pipeline_info.json -H "Authorization: Bearer $CI_WOODPECKER_TOKEN" "$CI_SYSTEM_URL/api/repos/$REPO_ID/pipelines/$PREV_PIPELINE_NUMBER" -w "%{http_code}")
     if [ "$p_status" != "200" ];
     then
         echo -e "[ERROR] Failed to fetch previous pipeline info.\n  URL: $CI_SYSTEM_URL/api/repos/$REPO_ID/pipelines/$PREV_PIPELINE_NUMBER\n  Status: $p_status"

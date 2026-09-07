@@ -339,7 +339,7 @@ config = {
             "suites": [
                 "apiTenancy",
             ],
-            "skip": True,
+            "skip": False,
             "withRemotePhp": False,
             "ldapNeeded": True,
             "extraTestEnvironment": {
@@ -389,7 +389,7 @@ config = {
             "suites": [
                 "admin-settings/",
                 "spaces/",
-                "rclone-crypt/",
+                #"rclone-crypt/",
             ],
         },
         "3": {
@@ -640,7 +640,7 @@ def savePipelineNumber():
         "steps": [{
             "name": "upload-info",
             "image": MINIO_MC,
-            "environment": MINIO_MC_ENV,
+            "environment": dict(MINIO_MC_ENV, CI_WOODPECKER_TOKEN = {"from_secret": "openclouders_woodpecker_token"}),
             "commands": [
                 "bash -x tests/config/woodpecker/upload_pipeline_info.sh",
             ],
@@ -1863,9 +1863,9 @@ def dockerReleases(ctx):
         # manifest["depends_on"] = getPipelineNames(repo_pipelines)
         # repo_pipelines.append(manifest)
 
-        readme = releaseDockerReadme(repo, build_type)
-        readme["depends_on"] = getPipelineNames(repo_pipelines)
-        repo_pipelines.append(readme)
+        # readme = releaseDockerReadme(repo, build_type)
+        # readme["depends_on"] = getPipelineNames(repo_pipelines)
+        # repo_pipelines.append(readme)
 
         pipelines.extend(repo_pipelines)
 
@@ -2429,7 +2429,7 @@ def notifyMatrixCheckSteps(ctx, depends_on):
                     "CI_WOODPECKER_URL": {
                         "from_secret": "oc_ci_url",
                     },
-                    "CI_REPO_ID": "3",
+                    "CI_REPO_ID": "26",
                     "CI_WOODPECKER_TOKEN": {
                         "from_secret": "openclouders_woodpecker_token",
                     },

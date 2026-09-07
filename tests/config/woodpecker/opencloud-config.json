@@ -26,6 +26,7 @@
     "search",
     "admin-settings",
     "app-store",
-    "rclone-crypt"
+    "rclone-crypt",
+    "omega-ui"
   ]
 }
