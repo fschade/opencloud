@@ -546,22 +546,6 @@ def main(ctx):
     if ctx.build.event == "cron" and ctx.build.cron == "translation-sync":
         return translation_sync(ctx)
 
-    is_release_pr = (ctx.build.event == "pull_request" and "🎉 release" in ctx.build.title.lower())
-    if is_release_pr:
-        return checkVersionPlaceholder() + \
-               licenseCheck(ctx) + \
-               notifyMatrixCheckSteps(ctx, getPipelineNames(licenseCheck(ctx) + checkVersionPlaceholder()))
-
-    build_release_helpers = \
-        readyReleaseGo()
-
-    build_release_helpers.append(
-        pipelineDependsOn(
-            licenseCheck(ctx),
-            getGoBinForTesting(ctx),
-        ),
-    )
-
     test_pipelines = \
         codestyle(ctx) + \
         checkGherkinLint(ctx) + \
@@ -571,7 +555,6 @@ def main(ctx):
         getGoBinForTesting(ctx) + \
         pipelinesDependsOn(buildOpencloudBinaryForTesting(ctx), savePipelineNumber()) + \
         checkStarlark(ctx) + \
-        build_release_helpers + \
         testOpencloudAndUploadResults(ctx) + \
         testPipelines(ctx)
 
@@ -646,10 +629,7 @@ def savePipelineNumber():
             ],
         }],
         "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": ["main", "stable-*"],
-            },
+            event["base"],
             event["tag"],
             event["cron"],
             event["pull_request"],
@@ -670,10 +650,7 @@ def cachePipeline(ctx, name, steps):
         "name": "cache-%s" % name,
         "steps": steps,
         "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": ["main", "stable-*"],
-            },
+            event["base"],
             event["cron"],
             {
                 "event": "pull_request",
@@ -736,10 +713,7 @@ def getGoBinForTesting(ctx):
         "when": [
             event["tag"],
             event["cron"],
-            {
-                "event": ["push", "manual"],
-                "branch": ["main", "stable-*"],
-            },
+            event["base"],
             {
                 "event": "pull_request",
                 "path": {
@@ -1986,10 +1960,10 @@ def dockerRelease(ctx, repo, build_type):
                         {
                             "registry": "https://registry.heinlein.group",
                             "username": {
-                                "from_secret": "harbor_opencloudeu_user",
+                                "from_secret": "harbor_opencloudintern_user",
                             },
                             "password": {
-                                "from_secret": "harbor_opencloudeu_password",
+                                "from_secret": "harbor_opencloudintern_password",
                             },
                         },
                     ],
