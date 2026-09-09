@@ -1990,10 +1990,10 @@ def dockerRelease(ctx, repo, build_type):
                         {
                             "registry": "https://registry.heinlein.group",
                             "username": {
-                                "from_secret": "harbor_opencloudeu_user",
+                                "from_secret": "harbor_opencloudintern_user",
                             },
                             "password": {
-                                "from_secret": "harbor_opencloudeu_password",
+                                "from_secret": "harbor_opencloudintern_password",
                             },
                         },
                     ],
